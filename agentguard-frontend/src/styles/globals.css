@@ -1,0 +1,220 @@
+@import './severity.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Backgrounds ── */
+    --bg-base:     #F8F7F4;
+    --bg-surface:  #FFFFFF;
+    --bg-raised:   #F2F0EC;
+    --bg-sunken:   #ECEAE5;
+
+    /* ── Borders ── */
+    --border-subtle:  rgba(0,0,0,0.07);
+    --border-medium:  rgba(0,0,0,0.12);
+    --border-strong:  rgba(0,0,0,0.18);
+
+    /* ── Text ── */
+    --text-primary:   #0F0E0D;
+    --text-secondary: #4A4642;
+    --text-tertiary:  #8A8480;
+    --text-disabled:  #B8B5B0;
+
+    /* ── Brand / Accent ── */
+    --accent:         #D4380D;
+    --accent-hover:   #B5300B;
+    --accent-light:   #FFF1ED;
+    --accent-mid:     #FFD4C4;
+
+    /* ── Severity Colors ── */
+    --critical:       #CF1322;
+    --critical-bg:    #FFF1F0;
+    --critical-border:#FFCCC7;
+
+    --high:           #D46B08;
+    --high-bg:        #FFF7E6;
+    --high-border:    #FFD591;
+
+    --medium:         #7C5A00;
+    --medium-bg:      #FFFBE6;
+    --medium-border:  #FFE58F;
+
+    --low:            #237804;
+    --low-bg:         #F6FFED;
+    --low-border:     #B7EB8F;
+
+    --info:           #003EB3;
+    --info-bg:        #F0F5FF;
+    --info-border:    #ADC6FF;
+
+    /* ── Agent Identity Colors ── */
+    --agent-sentinel: #531DAB;
+    --agent-oracle:   #003EB3;
+    --agent-striker:  #CF1322;
+    --agent-nexus:    #7C5A00;
+    --agent-herald:   #237804;
+
+    /* ── Shadows ── */
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+    --shadow-xl: 0 24px 64px rgba(0,0,0,0.12), 0 8px 16px rgba(0,0,0,0.07);
+
+    /* ── Radius ── */
+    --r-xs: 4px;
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 20px;
+    --r-full: 9999px;
+
+    /* ── Typography ── */
+    --font-display: 'Fraunces', serif;
+    --font-body:    'Geist', sans-serif;
+    --font-mono:    'Geist Mono', monospace;
+  }
+
+  body {
+    background-color: #F5F4F1;
+    background-image: 
+      radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        rgba(212, 56, 13, 0.04) 0%,
+        transparent 60%
+      );
+    background-attachment: fixed;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Base UI rules */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+}
+
+.metric-number {
+  font-family: var(--font-display);
+  font-weight: 900;
+}
+
+.section-title {
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.panel-label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.data-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.severity-badge-text {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.btn-text {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: var(--r-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Shimmer loading skeleton */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #F2F0EC 25%, #E9E8E5 50%, #F2F0EC 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+/* Card elevation system */
+.card-base {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 
+              0 1px 2px rgba(0,0,0,0.04);
+}
+
+.card-elevated {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08), 
+              0 2px 4px rgba(0,0,0,0.04);
+}
+
+.card-sunken {
+  background: #F2F0EC;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+}
+
+/* Micro-animations */
+@keyframes slideInLeft {
+  from { transform: translateX(-8px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+@keyframes rowHighlight {
+  0%   { background: rgba(212,56,13,0.08); }
+  100% { background: transparent; }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-row-highlight {
+  animation: rowHighlight 0.6s ease-out forwards;
+}
+
+

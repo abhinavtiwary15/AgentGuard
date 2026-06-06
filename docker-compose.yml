@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./agentguard-backend
+      dockerfile: Dockerfile
+    container_name: agentguard-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./agentguard-backend/.env
+    restart: unless-stopped
+    networks:
+      - agentguard-network
+
+  frontend:
+    build:
+      context: ./agentguard-frontend
+      dockerfile: Dockerfile
+    container_name: agentguard-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - agentguard-network
+
+networks:
+  agentguard-network:
+    driver: bridge

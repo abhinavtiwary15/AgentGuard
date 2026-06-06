@@ -1,0 +1,22 @@
+:root {
+  /* Severity — backgrounds */
+  --sev-critical-bg: #FFF1F0;
+  --sev-critical-border: #FFCCC7;
+  --sev-critical-text: #CF1322;
+  
+  --sev-high-bg: #FFF7E6;
+  --sev-high-border: #FFD591;
+  --sev-high-text: #D46B08;
+  
+  --sev-medium-bg: #FFFBE6;
+  --sev-medium-border: #FFE58F;
+  --sev-medium-text: #7C5A00;
+  
+  --sev-low-bg: #F6FFED;
+  --sev-low-border: #B7EB8F;
+  --sev-low-text: #237804;
+  
+  --sev-info-bg: #F0F5FF;
+  --sev-info-border: #ADC6FF;
+  --sev-info-text: #003EB3;
+}

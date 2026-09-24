@@ -2,7 +2,7 @@ import time
 import json
 from agents.base_agent import BaseAgent
 from models.models import AgentName, AgentStatus, ThreatSignal, Investigation, Severity, MitreMapping, CveMatch, ResponseAction
-from core.azure_openai import generate_json, ORACLE_PROMPT
+from core.azure_openai import generate_json, ORACLE_PROMPT, is_mock_fallback_active
 from core.azure_search import search_manager
 from core.config import settings
 
@@ -34,7 +34,10 @@ class OracleAgent(BaseAgent):
                 {"role": "user", "content": json.dumps(context_data)}
             ]
 
-            await self.think("Synthesizing context via GPT-4o...")
+            if is_mock_fallback_active():
+                await self.think("Synthesizing context via local heuristic fallback (Azure OpenAI unconfigured)...")
+            else:
+                await self.think("Synthesizing context via GPT-4o...")
             result = await generate_json(messages, settings.AZURE_OPENAI_GPT4O_DEPLOYMENT)
 
             classification = Severity(result.get("classification", "medium"))
@@ -62,7 +65,8 @@ class OracleAgent(BaseAgent):
                 recommended_actions=recommended_actions,
                 reasoning=result.get("reasoning", ""),
                 requires_human=requires_human,
-                escalation_reason=result.get("escalation_reason")
+                escalation_reason=result.get("escalation_reason"),
+                llm_source=result.get("llm_source", "mock_fallback" if is_mock_fallback_active() else "azure_openai")
             )
 
             await self.think(f"Investigation complete. Severity: {classification.upper()} | Confidence: {confidence*100}%")

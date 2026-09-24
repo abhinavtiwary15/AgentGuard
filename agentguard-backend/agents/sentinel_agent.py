@@ -3,7 +3,7 @@ import time
 from typing import Optional
 from agents.base_agent import BaseAgent
 from models.models import AgentName, AgentStatus, LogEntry, ThreatSignal, AttackType
-from core.azure_openai import generate_json, SENTINEL_PROMPT
+from core.azure_openai import generate_json, SENTINEL_PROMPT, is_mock_fallback_active
 from core.config import settings
 
 INJECTION_PATTERNS = [
@@ -77,7 +77,10 @@ class SentinelAgent(BaseAgent):
                 return injection_signal
             # --- End prompt injection gate ---
 
-            await self.think("Analyzing pattern via GPT-4o-mini...")
+            if is_mock_fallback_active():
+                await self.think("Analyzing pattern via local heuristic fallback (Azure OpenAI unconfigured)...")
+            else:
+                await self.think("Analyzing pattern via GPT-4o-mini...")
             result = await generate_json(messages, settings.AZURE_OPENAI_MINI_DEPLOYMENT)
 
             threat_score = result.get("threat_score", 0)
@@ -100,7 +103,8 @@ class SentinelAgent(BaseAgent):
                     threat_score=threat_score,
                     suspected_attack_type=attack_type,
                     indicators=result.get("indicators", []),
-                    description=result.get("description", "Threat detected")
+                    description=result.get("description", "Threat detected"),
+                    llm_source=result.get("llm_source", "mock_fallback" if is_mock_fallback_active() else "azure_openai")
                 )
                 await self.broadcast("threat_detected", signal.model_dump(mode="json"), f"Detected {attack_type} (Score: {threat_score})")
                 await self.complete_task()

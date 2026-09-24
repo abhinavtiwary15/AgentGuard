@@ -2,7 +2,7 @@ import time
 from agents.base_agent import BaseAgent
 from models.models import AgentName, AgentStatus, Investigation, Incident, ResponseResult, ActionResult, ResponseAction
 from core.power_automate import power_automate
-from core.azure_openai import generate_text, STRIKER_PROMPT
+from core.azure_openai import generate_text, STRIKER_PROMPT, is_mock_fallback_active
 from core.config import settings
 
 class StrikerAgent(BaseAgent):
@@ -65,7 +65,10 @@ class StrikerAgent(BaseAgent):
             await self.broadcast("action_executed", result.model_dump(mode="json"), f"Action {action.value} completed ({success})")
 
         # Generate reasoning
-        await self.think("Generating response audit reasoning...")
+        if is_mock_fallback_active():
+            await self.think("Generating action reasoning via local template fallback...")
+        else:
+            await self.think("Generating response audit reasoning via GPT-4o-mini...")
         messages = [
             {"role": "system", "content": STRIKER_PROMPT},
             {"role": "user", "content": f"Threat: {incident.attack_type}. Actions taken: {[a.action for a in actions_taken]}."}
@@ -80,7 +83,8 @@ class StrikerAgent(BaseAgent):
             actions_taken=actions_taken,
             total_response_time_ms=total_duration,
             auto_resolved=all(a.success for a in actions_taken),
-            reasoning=reasoning
+            reasoning=reasoning,
+            llm_source="mock_fallback" if is_mock_fallback_active() else "azure_openai"
         )
 
         await self.think(f"Response complete in {total_duration:.1f}ms")

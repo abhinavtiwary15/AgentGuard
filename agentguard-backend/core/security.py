@@ -24,8 +24,8 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     if expires_delta:
         expire = now + expires_delta
     else:
-        # Default 24 hours expiry for operational usability
-        expire = now + timedelta(minutes=settings.JWT_EXPIRE_MINUTES if settings.JWT_EXPIRE_MINUTES > 60 else 1440)
+        # Default expiry based on configured JWT_EXPIRE_MINUTES (default: 60 minutes)
+        expire = now + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
     
     to_encode.update({
         "exp": expire,

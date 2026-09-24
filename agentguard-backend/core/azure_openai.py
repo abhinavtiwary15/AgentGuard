@@ -44,6 +44,11 @@ def _should_use_fallback() -> bool:
     return not key or not endpoint or "mock" in key.lower() or "your_openai" in key.lower() or "mock" in endpoint.lower()
 
 
+def is_mock_fallback_active() -> bool:
+    """Return True if Azure OpenAI is running in mock fallback mode."""
+    return _should_use_fallback() or last_status.get("status") == "fallback"
+
+
 async def _with_retries(label: str, call: Callable[[], Coroutine[Any, Any, Any]]) -> Optional[Any]:
     global last_status
     last_error = None
@@ -87,7 +92,8 @@ def _fallback_json(messages: list) -> dict:
             "is_threat": True,
             "suspected_attack_type": attack_type,
             "indicators": ["attack pattern matched", "behavioral anomaly detected"],
-            "description": f"Potential {attack_type} detected in live telemetry.",
+            "description": f"[Local Heuristic Fallback] Potential {attack_type} detected in live telemetry.",
+            "llm_source": "mock_fallback",
         }
 
     if "Oracle" in sys_content or "ORACLE" in sys_content:
@@ -130,15 +136,16 @@ def _fallback_json(messages: list) -> dict:
                 }
             ],
             "recommended_actions": actions,
-            "reasoning": f"Correlated telemetry indicates an active {attack_type} attempt. Recommended containment protects identity and API surfaces while preserving audit evidence.",
+            "reasoning": f"[Local Heuristic Fallback] Correlated telemetry indicates an active {attack_type} attempt. Recommended containment protects identity and API surfaces while preserving audit evidence.",
             "requires_human": requires_human,
             "escalation_reason": "Confidence below automation threshold or sensitive internal asset" if requires_human else None,
+            "llm_source": "mock_fallback",
         }
 
     if "Herald" in sys_content or "HERALD" in sys_content:
         return {
-            "executive_summary": "AgentGuard detected, investigated, and contained a security incident with no confirmed data loss.",
-            "technical_summary": "Telemetry was correlated across authentication, network, and application layers. Automated controls reduced exposure while preserving evidence for review.",
+            "executive_summary": "[Local Heuristic Fallback] AgentGuard detected, investigated, and contained a security incident with no confirmed data loss.",
+            "technical_summary": "[Local Heuristic Fallback] Telemetry was correlated across authentication, network, and application layers. Automated controls reduced exposure while preserving evidence for review.",
             "timeline_narrative": "T0: anomaly observed. T1: Sentinel scored the threat. T2: Oracle mapped the behavior to known attack patterns. T3: Striker executed containment. T4: Herald produced the response report.",
             "recommendations": [
                 "Review authentication logs for related indicators.",
@@ -147,6 +154,7 @@ def _fallback_json(messages: list) -> dict:
                 "Schedule a follow-up control review with the SOC team.",
             ],
             "compliance_notes": "No confirmed regulated-data exposure was observed in the available telemetry.",
+            "llm_source": "mock_fallback",
         }
 
     if "Nexus" in sys_content or "NEXUS" in sys_content:
@@ -154,11 +162,12 @@ def _fallback_json(messages: list) -> dict:
             "priority": "high",
             "assign_to": "oracle",
             "auto_respond": True,
-            "reasoning": "High-confidence threat path selected for automated investigation and containment.",
+            "reasoning": "[Local Heuristic Fallback] High-confidence threat path selected for automated investigation and containment.",
             "parallel_tasks": ["investigate", "alert"],
+            "llm_source": "mock_fallback",
         }
 
-    return {}
+    return {"llm_source": "mock_fallback"}
 
 
 async def generate_json(messages: list, deployment: str) -> dict:
@@ -174,8 +183,11 @@ async def generate_json(messages: list, deployment: str) -> dict:
 
         result = await _with_retries("JSON", call)
         if result is not None:
+            if isinstance(result, dict):
+                result["llm_source"] = "azure_openai"
             return result
 
+    logger.info("Azure OpenAI unconfigured or unreachable. Using local heuristic mock fallback for %s.", deployment)
     return _fallback_json(messages)
 
 
@@ -192,7 +204,8 @@ async def generate_text(messages: list, deployment: str) -> str:
         if result is not None:
             return result
 
-    return "Automated containment completed successfully based on the investigation result. Identity, network, and application safeguards are active while monitoring continues."
+    logger.info("Azure OpenAI unconfigured or unreachable. Using local heuristic mock text fallback for %s.", deployment)
+    return "[Local Heuristic Fallback] Automated containment completed successfully based on the investigation result. Identity, network, and application safeguards are active while monitoring continues."
 
 
 async def generate_embeddings(text: str) -> list[float]:

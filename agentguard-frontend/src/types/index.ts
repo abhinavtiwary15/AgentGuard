@@ -26,6 +26,7 @@ export interface ThreatSignal {
   indicators: string[];
   description: string;
   source_agent: AgentName;
+  llm_source?: string;
 }
 
 export interface Investigation {
@@ -40,6 +41,7 @@ export interface Investigation {
   reasoning: string;
   requires_human: boolean;
   escalation_reason?: string;
+  llm_source?: string;
 }
 
 export interface ResponseResult {
@@ -48,6 +50,7 @@ export interface ResponseResult {
   auto_resolved: boolean;
   reasoning: string;
   actions_taken: any[];
+  llm_source?: string;
 }
 
 export interface TimelineEntry {
@@ -113,6 +116,7 @@ export interface IncidentReport {
   timeline_narrative: string;
   recommendations: string[];
   compliance_notes?: string;
+  llm_source?: string;
   metrics: {
     detection_time_ms?: number;
     severity?: string;

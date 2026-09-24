@@ -3,7 +3,7 @@ import httpx
 from typing import Optional
 from agents.base_agent import BaseAgent
 from models.models import AgentName, AgentStatus, IncidentReport, Incident, IncidentStatus, Severity
-from core.azure_openai import generate_json, HERALD_PROMPT
+from core.azure_openai import generate_json, HERALD_PROMPT, is_mock_fallback_active
 from core.config import settings
 from utils.logger import logger
 
@@ -24,7 +24,10 @@ class HeraldAgent(BaseAgent):
                 {"role": "user", "content": str(incident_data)}
             ]
 
-            await self.think("Drafting executive and technical summaries via GPT-4o...")
+            if is_mock_fallback_active():
+                await self.think("Drafting executive and technical summaries via local template fallback (Azure OpenAI unconfigured)...")
+            else:
+                await self.think("Drafting executive and technical summaries via GPT-4o...")
             result = await generate_json(messages, settings.AZURE_OPENAI_GPT4O_DEPLOYMENT)
 
             report = IncidentReport(
@@ -34,6 +37,7 @@ class HeraldAgent(BaseAgent):
                 timeline_narrative=result.get("timeline_narrative", ""),
                 recommendations=result.get("recommendations", []),
                 compliance_notes=result.get("compliance_notes"),
+                llm_source=result.get("llm_source", "mock_fallback" if is_mock_fallback_active() else "azure_openai"),
                 metrics={
                     "detection_time_ms": incident.response.total_response_time_ms if incident.response else 0,
                     "severity": incident.severity.value if incident.severity else "unknown"

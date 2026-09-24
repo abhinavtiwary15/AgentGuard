@@ -80,6 +80,7 @@ class ThreatSignal(BaseModel):
     indicators: List[str] = []
     description: str = ""
     source_agent: AgentName = AgentName.SENTINEL
+    llm_source: Optional[str] = "azure_openai"
 
 class MitreMapping(BaseModel):
     technique_id: str
@@ -109,6 +110,7 @@ class Investigation(BaseModel):
     reasoning: str = ""
     requires_human: bool = False
     escalation_reason: Optional[str] = None
+    llm_source: Optional[str] = "azure_openai"
 
 class ActionResult(BaseModel):
     action: ResponseAction
@@ -126,6 +128,7 @@ class ResponseResult(BaseModel):
     total_response_time_ms: float = 0
     auto_resolved: bool = False
     reasoning: str = ""
+    llm_source: Optional[str] = "azure_openai"
 
 class Incident(BaseModel):
     id: str = Field(default_factory=lambda: f"INC-{str(uuid4())[:8].upper()}")
@@ -167,6 +170,7 @@ class IncidentReport(BaseModel):
     recommendations: List[str] = []
     metrics: Dict[str, Any] = {}
     compliance_notes: Optional[str] = None
+    llm_source: Optional[str] = "azure_openai"
 
 class DashboardMetrics(BaseModel):
     threats_today: int = 0

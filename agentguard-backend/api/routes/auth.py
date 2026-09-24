@@ -146,7 +146,8 @@ async def login(request: Request, payload: LoginRequest):
             detail="User account is deactivated."
         )
 
-    # 24-hour token duration
+    # Configured token duration (default: 60 minutes)
+    expires_minutes = settings.JWT_EXPIRE_MINUTES
     access_token = create_access_token(
         data={
             "sub": user.username,
@@ -154,13 +155,13 @@ async def login(request: Request, payload: LoginRequest):
             "role": user.role.value,
             "email": user.email,
         },
-        expires_delta=timedelta(hours=24),
+        expires_delta=timedelta(minutes=expires_minutes),
     )
 
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
-        expires_in=86400,
+        expires_in=expires_minutes * 60,
         user=UserResponse(
             id=user.id,
             username=user.username,

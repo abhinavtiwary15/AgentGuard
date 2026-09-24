@@ -57,8 +57,11 @@ Attack Detected → Sentinel Scores → Oracle Investigates → Striker Responds
 │  │Log Anal.│ │RAG+MITE│ │Automate │ │CosmosDB │ │Report │ │
 │  └─────────┘ └────────┘ └─────────┘ └─────────┘ └───────┘ │
 │                                                             │
-│  Azure Services: OpenAI · AI Search · Cosmos DB ·          │
-│                  Event Hub · Service Bus · Power Automate   │
+│  Azure Services: OpenAI · AI Search* · Cosmos DB ·          │
+│                  Event Hub* · Service Bus* · Power Automate │
+│                                                             │
+│  * Implemented with offline checks; unverified live on Azure│
+│    (see Implementation vs. Live Azure Verification Status)   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -66,40 +69,40 @@ Attack Detected → Sentinel Scores → Oracle Investigates → Striker Responds
 
 ## ✨ Key Features
 
-- **⚡ Sub-2-second response** — Full detect-investigate-block cycle, fully autonomous
-- **🧠 RAG-powered intelligence** — Azure AI Search over MITRE ATT&CK + live CVE database
-- **🎯 Smart escalation** — Low-confidence threats automatically go to human analysts
-- **🌐 Real-time dashboard** — WebSocket-powered command center with live agent reasoning stream
-- **🎬 Cinematic simulations** — 3 realistic attack scenarios with live agent commentary
-- **📊 Forensic reports** — GPT-4o generated executive summaries and CISO-ready reports
-- **🔒 Enterprise-grade** — JWT auth, rate limiting, full audit trail in Cosmos DB
-- **🐳 Production-ready** — Dockerized, environment-configurable, CI/CD ready
+- **⚡ Rapid response pipeline** — Detect-investigate-block workflow designed for automated threat triage
+- **🧠 RAG-powered intelligence** — Azure AI Search over MITRE ATT&CK + CVE database schema
+- **🎯 Smart escalation** — Low-confidence threats automatically route to human analysts for review
+- **🌐 Real-time dashboard** — WebSocket-powered command center with live agent thought stream
+- **🎬 Scenario Playback** — Interactive narrated simulation scripts illustrating multi-agent response sequences
+- **📊 Forensic reports** — Structured executive and technical incident summaries with audit metrics
+- **🔒 Enterprise-pattern controls** — JWT authentication with role-based access control, sliding rate limiting, and structured audit trails
+- **🐳 Production-oriented architecture\*** — Dockerized multi-service design, environment-driven security validation, and modular cloud adapters *(see [Implementation vs. Live Azure Verification Status](#-implementation-vs-live-azure-verification-status) below regarding cloud services verified live vs. local-only)*
 
 ---
 
-## 🎬 Simulation Scenarios
+## 🎬 Scenario Playback (Illustrative Simulation Scripts)
 
-Three built-in threat scenarios to demonstrate AgentGuard's capabilities:
+The platform includes three built-in illustrative attack scenario scripts to demonstrate the intended multi-agent triage and containment workflow in the UI:
 
-### 1. SQL Injection Attack
-```
-t=0.0s  HTTP POST /api/auth?user=admin'OR+1=1-- from 185.220.101.47 (TOR exit node)
-t=0.8s  Sentinel: Threat score 87/100 · CRITICAL
-t=3.2s  Oracle: T1190 (94.2% match) · CVE-2024-1234 (CVSS 9.8)
-t=4.5s  Striker: IP blocked · Sessions revoked · Rate limit enforced
-t=6.5s  Herald: Report generated · Incident RESOLVED
-                         ↳ Total time: 1.2 seconds
-```
+> [!NOTE]
+> **Scenario Playback vs. Live Performance**: These timelines are scripted narrative playbacks illustrating the multi-agent collaboration lifecycle. For actual pipeline execution latency, real-time agent thoughts, and live containment execution status on a given run, refer to the live Command Center dashboard (`/dashboard` and `/incidents`).
 
-### 2. Credential Stuffing Campaign
-```
-500 failed logins from 47 rotating IPs → Auto-blocked, CAPTCHA enforced
-```
+### 1. SQL Injection Attack Playback
+- **Ingestion**: Malicious HTTP payload `user=admin'OR+1=1--` intercepted from TOR exit node `185.220.101.47`
+- **Sentinel**: Detects SQL injection signature, assigns critical threat score (87/100)
+- **Oracle**: Correlates against MITRE ATT&CK T1190 (*Exploit Public-Facing Application*) and CVE-2024-1234
+- **Striker**: Triggers IP block and user session revocation via containment workflow
+- **Herald**: Produces forensic incident report and broadcasts resolution status
 
-### 3. Insider Data Exfiltration
-```
-8.4GB in 20min (1100% baseline deviation) → Low confidence → ESCALATED to human
-```
+### 2. Credential Stuffing Campaign Playback
+- **Ingestion**: Rapid burst of 500 failed authentication attempts from 47 rotating IP addresses
+- **Sentinel & Oracle**: Evaluates distributed brute-force pattern; assigns high severity
+- **Striker & Herald**: Issues dynamic rate limiting and administrative notification
+
+### 3. Insider Data Exfiltration Playback
+- **Ingestion**: Unusual 8.4 GB off-hours database query volume representing 1,100% baseline deviation
+- **Sentinel & Oracle**: Assesses behavioral anomaly; confidence falls below automated containment threshold
+- **Orchestration**: Automatically escalates to human analyst review rather than taking disruptive automated action
 
 ---
 
@@ -169,7 +172,7 @@ Upon first launch, if no users exist in the system, AgentGuard automatically boo
 
 ### Authentication Features
 1. **Interactive Login & Registration**: The frontend `/login` view allows analysts to sign in with their credentials or register a new analyst profile.
-2. **Signed Bearer JWTs**: The backend issues signed HS256 tokens (with 24-hour validity) validated against `JWT_SECRET`. Passwords are encrypted with bcrypt (12 rounds) — plaintext passwords are never stored.
+2. **Signed Bearer JWTs**: The backend issues signed HS256 tokens (with 60-minute validity, configurable via `JWT_EXPIRE_MINUTES`) validated against `JWT_SECRET`. Passwords are encrypted with bcrypt (12 rounds) — plaintext passwords are never stored.
 3. **Route Guards & Interceptors**: Unauthenticated sessions are automatically caught and redirected to `/login`, and expired sessions cleanly trigger re-authentication.
 4. **Programmatic API Keys**: From the **Account & Security Settings** page, analysts can generate a dedicated 90-day signed API token for automation, CLI utilities, and external SIEM forwarding.
 5. **Self-Service Password Management**: Authenticated users can update their passwords directly via `POST /api/auth/change-password` or the Account interface.

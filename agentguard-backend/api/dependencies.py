@@ -6,18 +6,25 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    if not credentials or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Please provide a Bearer token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
     
-    # Graceful bypass for local development, testing, and hackathon simulations.
+    # Development-only test harness bypass: ONLY allowed in development environment
     if settings.ENVIRONMENT == "development" and token == "dummy-token-for-hackathon":
         return "admin"
         
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Could not validate credentials or token expired.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:

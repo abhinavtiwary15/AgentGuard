@@ -11,6 +11,12 @@ param baseName string = 'agentguard'
 ])
 param environment string = 'prod'
 
+@description('Whether to provision Azure Service Bus (optional; incurs standard tier charges).')
+param deployServiceBus bool = false
+
+@description('Whether to provision Azure Event Hubs (optional; incurs standard tier charges).')
+param deployEventHub bool = false
+
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var prefix = '${baseName}-${environment}'
 var openAiName = '${prefix}-openai-${uniqueSuffix}'
@@ -184,8 +190,8 @@ resource reportsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
   }
 }
 
-// 4. Azure Service Bus Namespace & Queues
-resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2021-11-01' = {
+// 4. Azure Service Bus Namespace & Queues (Optional)
+resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2021-11-01' = if (deployServiceBus) {
   name: serviceBusName
   location: location
   sku: {
@@ -194,7 +200,7 @@ resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2021-11-01' = {
   }
 }
 
-resource threatQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
+resource threatQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = if (deployServiceBus) {
   parent: serviceBusNamespace
   name: 'threat-signals'
   properties: {
@@ -203,7 +209,7 @@ resource threatQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
   }
 }
 
-resource responseQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
+resource responseQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = if (deployServiceBus) {
   parent: serviceBusNamespace
   name: 'agent-responses'
   properties: {
@@ -212,8 +218,8 @@ resource responseQueue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
   }
 }
 
-// 5. Azure Event Hubs Namespace & Hub
-resource eventHubsNamespace 'Microsoft.EventHub/namespaces@2021-11-01' = {
+// 5. Azure Event Hubs Namespace & Hub (Optional)
+resource eventHubsNamespace 'Microsoft.EventHub/namespaces@2021-11-01' = if (deployEventHub) {
   name: eventHubsNamespaceName
   location: location
   sku: {
@@ -223,7 +229,7 @@ resource eventHubsNamespace 'Microsoft.EventHub/namespaces@2021-11-01' = {
   }
 }
 
-resource securityEventHub 'Microsoft.EventHub/namespaces/eventhubs@2021-11-01' = {
+resource securityEventHub 'Microsoft.EventHub/namespaces/eventhubs@2021-11-01' = if (deployEventHub) {
   parent: eventHubsNamespace
   name: 'security-logs'
   properties: {

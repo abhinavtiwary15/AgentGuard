@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Response
 from typing import List, Optional
 from models.models import Incident, LogEntry, IncidentStatus
 from core.cosmos_db import cosmos_db
-from core.config import settings
+from core.config import settings, SERVER_START_TIME
+import time
 from api.dependencies import get_current_user, limiter
 from fastapi import Request
 from agents.sentinel_agent import sentinel
@@ -61,6 +62,9 @@ async def incident_stats(request: Request):
     by_attack_type = {}
     active_statuses = {"detecting", "investigating", "responding", "escalated"}
     active_count = 0
+    response_times = []
+    auto_resolved_count = 0
+    resolved_count = 0
 
     for item in items:
         status = item.get("status") or "unknown"
@@ -72,12 +76,30 @@ async def incident_stats(request: Request):
         if status in active_statuses:
             active_count += 1
 
+        response = item.get("response") or {}
+        investigation = item.get("investigation") or {}
+        resp_time = response.get("total_response_time_ms")
+        if isinstance(resp_time, (int, float)):
+            response_times.append(resp_time)
+
+        if status in {"resolved", "blocked", "escalated"} or response:
+            resolved_count += 1
+            if response.get("auto_resolved") is True or (status in {"resolved", "blocked"} and not investigation.get("requires_human")):
+                auto_resolved_count += 1
+
+    avg_response = sum(response_times) / len(response_times) if response_times else 0
+    auto_resolved_pct = round((auto_resolved_count / resolved_count) * 100, 1) if resolved_count > 0 else None
+    uptime_seconds = max(0.0, time.time() - SERVER_START_TIME)
+
     return {
         "total": len(items),
         "active": active_count,
         "by_status": by_status,
         "by_severity": by_severity,
         "by_attack_type": by_attack_type,
+        "avg_response_ms": avg_response,
+        "auto_resolved_pct": auto_resolved_pct,
+        "uptime_seconds": uptime_seconds,
     }
 
 @router.get("/{id}/report")

@@ -9,12 +9,14 @@ from utils.logger import logger
 
 class CosmosDBManager:
     def __init__(self):
-        self.use_mock = "mockkey" in settings.COSMOS_DB_CONNECTION or "your_key" in settings.COSMOS_DB_CONNECTION
+        conn = settings.COSMOS_DB_CONNECTION or ""
+        self.use_mock = not conn or "mock" in conn.lower() or "your_key" in conn.lower()
         self.status_reason = "configured for in-memory fallback" if self.use_mock else "Cosmos DB client configured"
         self.memory_db = {
             settings.COSMOS_CONTAINER_INCIDENTS: {},
             settings.COSMOS_CONTAINER_AUDIT: {},
             settings.COSMOS_CONTAINER_REPORTS: {},
+            settings.COSMOS_CONTAINER_USERS: {},
         }
         if not self.use_mock:
             try:
@@ -51,6 +53,8 @@ class CosmosDBManager:
         status: Optional[str] = None,
         severity: Optional[str] = None,
         incident_id: Optional[str] = None,
+        username: Optional[str] = None,
+        email: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         items = list(self.memory_db.get(container_name, {}).values())
@@ -60,6 +64,10 @@ class CosmosDBManager:
             items = [item for item in items if item.get("severity") == severity]
         if incident_id:
             items = [item for item in items if item.get("incident_id") == incident_id]
+        if username:
+            items = [item for item in items if item.get("username") == username]
+        if email:
+            items = [item for item in items if item.get("email") == email]
         if limit is not None:
             items = items[: max(0, int(limit))]
         return items
@@ -114,6 +122,8 @@ class CosmosDBManager:
         status: Optional[str] = None,
         severity: Optional[str] = None,
         incident_id: Optional[str] = None,
+        username: Optional[str] = None,
+        email: Optional[str] = None,
         limit: Optional[int] = None,
     ):
         if self.use_mock:
@@ -122,6 +132,8 @@ class CosmosDBManager:
                 status=status,
                 severity=severity,
                 incident_id=incident_id,
+                username=username,
+                email=email,
                 limit=limit,
             )
 
@@ -136,6 +148,12 @@ class CosmosDBManager:
         if incident_id:
             clauses.append("c.incident_id = @incident_id")
             parameters.append({"name": "@incident_id", "value": incident_id})
+        if username:
+            clauses.append("c.username = @username")
+            parameters.append({"name": "@username", "value": username})
+        if email:
+            clauses.append("c.email = @email")
+            parameters.append({"name": "@email", "value": email})
 
         top = f"TOP {max(0, int(limit))} " if limit is not None else ""
         query = f"SELECT {top}* FROM c WHERE {' AND '.join(clauses)}"

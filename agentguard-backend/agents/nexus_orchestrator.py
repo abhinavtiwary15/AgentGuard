@@ -7,6 +7,7 @@ from agents.striker_agent import striker
 from agents.herald_agent import herald
 from models.models import AgentName, AgentStatus, ThreatSignal, Incident, IncidentStatus, Severity
 from core.cosmos_db import cosmos_db
+from core.service_bus import service_bus
 from core.config import settings
 
 class NexusOrchestrator(BaseAgent):
@@ -37,6 +38,10 @@ class NexusOrchestrator(BaseAgent):
             incident.status = IncidentStatus.INVESTIGATING
             await cosmos_db.upsert_item(settings.COSMOS_CONTAINER_INCIDENTS, incident.model_dump(mode='json'))
             await self.broadcast("incident_updated", incident.model_dump(mode='json'), "Status updated to INVESTIGATING")
+
+            # Publish threat signal to Service Bus queue if configured
+            if not service_bus.use_mock:
+                await service_bus.send_message(settings.SERVICE_BUS_QUEUE_THREATS, signal.model_dump(mode='json'))
             
             investigation = await oracle.investigate(signal)
             incident.investigation = investigation
@@ -56,6 +61,9 @@ class NexusOrchestrator(BaseAgent):
                 response = await striker.respond(investigation, incident, dry_run=dry_run)
                 incident.response = response
                 
+                if not service_bus.use_mock:
+                    await service_bus.send_message(settings.SERVICE_BUS_QUEUE_RESPONSES, response.model_dump(mode='json'))
+
                 incident.status = IncidentStatus.RESOLVED if response.auto_resolved else IncidentStatus.ESCALATED
                 await self.think(f"Response executed. Status: {incident.status.value}")
 

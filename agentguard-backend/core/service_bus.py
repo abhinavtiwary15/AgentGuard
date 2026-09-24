@@ -1,3 +1,10 @@
+"""
+Azure Service Bus Manager
+Note: Service Bus integration is implemented and passes local offline checks,
+but has not yet been verified against a live Azure resource. Testing this
+against a real deployment is a welcome contribution.
+"""
+
 from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus import ServiceBusMessage
 from core.config import settings

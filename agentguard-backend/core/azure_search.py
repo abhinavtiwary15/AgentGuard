@@ -29,15 +29,32 @@ class AzureSearchManager:
         if self.use_mock:
             return []
         try:
-            vector_query = VectorizedQuery(
-                vector=await generate_embeddings(query),
-                k_nearest_neighbors=3,
-                fields="embedding"
-            )
+            vector_queries = None
+            try:
+                emb = await generate_embeddings(query)
+                if emb:
+                    vector_queries = [VectorizedQuery(vector=emb, k_nearest_neighbors=3, fields="embedding")]
+            except Exception as emb_err:
+                logger.debug("Embeddings unavailable for threat query, using text search: %s", emb_err)
+
             async with self.get_client(settings.AZURE_SEARCH_INDEX_THREATS) as client:
+                if vector_queries:
+                    try:
+                        results = await client.search(
+                            search_text=query,
+                            vector_queries=vector_queries,
+                            select=["id", "content", "source"],
+                            top=3
+                        )
+                        docs = [doc async for doc in results]
+                        if docs:
+                            return docs
+                    except Exception as vec_err:
+                        logger.info("Vector query unavailable on threat index, falling back to keyword search: %s", vec_err)
+
+                # Keyword search fallback
                 results = await client.search(
                     search_text=query,
-                    vector_queries=[vector_query],
                     select=["id", "content", "source"],
                     top=3
                 )
@@ -51,15 +68,32 @@ class AzureSearchManager:
         if self.use_mock:
             return []
         try:
-            vector_query = VectorizedQuery(
-                vector=await generate_embeddings(query),
-                k_nearest_neighbors=3,
-                fields="embedding"
-            )
+            vector_queries = None
+            try:
+                emb = await generate_embeddings(query)
+                if emb:
+                    vector_queries = [VectorizedQuery(vector=emb, k_nearest_neighbors=3, fields="embedding")]
+            except Exception as emb_err:
+                logger.debug("Embeddings unavailable for MITRE query, using text search: %s", emb_err)
+
             async with self.get_client(settings.AZURE_SEARCH_INDEX_MITRE) as client:
+                if vector_queries:
+                    try:
+                        results = await client.search(
+                            search_text=query,
+                            vector_queries=vector_queries,
+                            select=["technique_id", "technique_name", "tactic", "description"],
+                            top=3
+                        )
+                        docs = [doc async for doc in results]
+                        if docs:
+                            return docs
+                    except Exception as vec_err:
+                        logger.info("Vector query unavailable on MITRE index, falling back to keyword search: %s", vec_err)
+
+                # Keyword search fallback
                 results = await client.search(
                     search_text=query,
-                    vector_queries=[vector_query],
                     select=["technique_id", "technique_name", "tactic", "description"],
                     top=3
                 )

@@ -1,4 +1,5 @@
 import time
+import httpx
 from typing import Optional
 from agents.base_agent import BaseAgent
 from models.models import AgentName, AgentStatus, IncidentReport, Incident, IncidentStatus, Severity
@@ -60,16 +61,42 @@ class HeraldAgent(BaseAgent):
         try:
             if dry_run:
                 logger.warning("DRY RUN: skipping external webhook [%s]", settings.TEAMS_WEBHOOK_URL)
-                logger.warning("DRY RUN: skipping external webhook [Azure Communication Services]")
                 await self.think("DRY RUN: external alert delivery skipped.")
-                await self.broadcast("alert_sent", {"incident_id": incident.id, "channel": "dry_run"}, "DRY RUN: Alert broadcast without external delivery")
+                await self.broadcast("alert_sent", {"incident_id": incident.id, "channel": "dry_run", "status": "dry_run"}, "DRY RUN: Alert broadcast without external delivery")
                 return
 
-            # Here we would integrate with Azure Communication Services / Teams
-            # For hackathon purposes, we assume success after API setup
-            await self.think("Teams webhook triggered successfully.")
-            await self.broadcast("alert_sent", {"incident_id": incident.id, "channel": "teams"}, "Alert sent to Teams")
+            webhook_url = settings.TEAMS_WEBHOOK_URL
+            if not webhook_url or "mock" in webhook_url or "your-webhook" in webhook_url or not webhook_url.startswith("http"):
+                await self.think("Teams webhook not configured — external notification skipped.")
+                await self.broadcast("alert_skipped", {
+                    "incident_id": incident.id,
+                    "channel": "teams",
+                    "status": "not_configured",
+                    "reason": "TEAMS_WEBHOOK_URL is not configured"
+                }, "External alert delivery skipped (no Teams webhook configured)")
+                return
+
+            # Real Teams incoming webhook payload
+            async with httpx.AsyncClient() as client:
+                card_payload = {
+                    "@type": "MessageCard",
+                    "@context": "http://schema.org/extensions",
+                    "themeColor": "CF1322" if incident.severity == Severity.CRITICAL else "D46B08",
+                    "summary": f"AgentGuard Alert: {incident.attack_type.value if hasattr(incident.attack_type, 'value') else incident.attack_type} ({incident.id})",
+                    "sections": [{
+                        "activityTitle": f"🚨 AgentGuard Incident Alert: {incident.id}",
+                        "activitySubtitle": f"Severity: {incident.severity.value if hasattr(incident.severity, 'value') else incident.severity} | Type: {incident.attack_type.value if hasattr(incident.attack_type, 'value') else incident.attack_type}",
+                        "text": report.executive_summary or f"Threat detected from IP {incident.source_ip or 'unknown'}",
+                        "markdown": True
+                    }]
+                }
+                resp = await client.post(webhook_url, json=card_payload, timeout=10.0)
+                resp.raise_for_status()
+                await self.think("Teams webhook delivered successfully.")
+                await self.broadcast("alert_sent", {"incident_id": incident.id, "channel": "teams", "status": "delivered"}, "Alert delivered to Teams #security-ops")
         except Exception as e:
-            await self.think(f"Failed to send alert: {str(e)}")
+            logger.warning("Failed to dispatch alert for %s: %s", incident.id, str(e))
+            await self.think(f"Failed to dispatch external alert: {str(e)[:120]}")
+            await self.broadcast("alert_failed", {"incident_id": incident.id, "channel": "teams", "status": "failed", "error": str(e)[:120]}, f"Alert delivery failed: {str(e)[:100]}")
 
 herald = HeraldAgent()

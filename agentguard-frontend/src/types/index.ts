@@ -114,7 +114,10 @@ export interface IncidentReport {
   recommendations: string[];
   compliance_notes?: string;
   metrics: {
-    detection_time_ms: number;
-    severity: string;
+    detection_time_ms?: number;
+    severity?: string;
+    confidence?: number;
+    response_time_ms?: number;
+    [key: string]: any;
   };
 }

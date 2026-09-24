@@ -27,16 +27,13 @@ class StrikerAgent(BaseAgent):
                 await self.think(f"Executing action: {action.value.upper()}")
                 
                 if action == ResponseAction.BLOCK_IP and incident.source_ip:
-                    success = await power_automate.block_ip(incident.source_ip, f"Incident {incident.id}", dry_run=dry_run)
-                    details = f"DRY RUN: IP {incident.source_ip} block skipped" if dry_run and success else f"IP {incident.source_ip} blocked in Azure Firewall" if success else "Failed to block IP"
+                    success, details = await power_automate.block_ip(incident.source_ip, f"Incident {incident.id}", dry_run=dry_run)
                     
                 elif action == ResponseAction.REVOKE_SESSION and incident.affected_user:
-                    success = await power_automate.revoke_session(incident.affected_user, f"Incident {incident.id}", dry_run=dry_run)
-                    details = f"DRY RUN: session revoke skipped for {incident.affected_user}" if dry_run and success else f"Sessions revoked for {incident.affected_user}" if success else "Failed to revoke sessions"
+                    success, details = await power_automate.revoke_session(incident.affected_user, f"Incident {incident.id}", dry_run=dry_run)
                     
                 elif action == ResponseAction.LOCK_ACCOUNT and incident.affected_user:
-                    success = await power_automate.lock_account(incident.affected_user, f"Incident {incident.id}", dry_run=dry_run)
-                    details = f"DRY RUN: account lock skipped for {incident.affected_user}" if dry_run and success else f"Account locked for {incident.affected_user}" if success else "Failed to lock account"
+                    success, details = await power_automate.lock_account(incident.affected_user, f"Incident {incident.id}", dry_run=dry_run)
                     
                 elif action == ResponseAction.RATE_LIMIT:
                     success = True

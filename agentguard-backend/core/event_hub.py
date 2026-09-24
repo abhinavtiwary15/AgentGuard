@@ -1,3 +1,10 @@
+"""
+Azure Event Hubs Manager
+Note: Event Hub integration is implemented and passes local offline checks,
+but has not yet been verified against a live Azure resource. Testing this
+against a real deployment is a welcome contribution.
+"""
+
 from azure.eventhub.aio import EventHubConsumerClient
 
 from core.config import settings

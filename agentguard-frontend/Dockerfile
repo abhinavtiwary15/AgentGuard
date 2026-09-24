@@ -9,7 +9,7 @@ RUN npm install
 
 # Copy source code and build
 COPY . .
-RUN npm run build
+RUN npm run build -- --mode production
 
 # Production stage using Nginx
 FROM nginx:alpine

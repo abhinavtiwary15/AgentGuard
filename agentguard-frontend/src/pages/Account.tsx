@@ -3,8 +3,9 @@ import { CommandBar } from '../components/layout/CommandBar';
 import { useConnectionState } from '../hooks/useWebSocket';
 import { useAgentStore } from '../store/agentStore';
 import { useAlertStore } from '../store/alertStore';
-import { apiClient } from '../api/client';
-import { Clipboard } from 'lucide-react';
+import { apiClient, getAuthToken } from '../api/client';
+import { authApi, UserProfile } from '../api/auth';
+import { Clipboard, LogOut } from 'lucide-react';
 
 interface NotifPrefs {
   criticalAlerts: boolean;
@@ -25,9 +26,50 @@ export const Account: React.FC = () => {
   const agents = useAgentStore((state) => state.agents);
   const addAlert = useAlertStore((state) => state.addAlert);
 
+  const [user, setUser] = useState<UserProfile | null>(() => authApi.getCurrentUser());
   const [apiVersion, setApiVersion] = useState<string>('Loading...');
   const [showModal, setShowModal] = useState(false);
   const [isHoveredClear, setIsHoveredClear] = useState(false);
+  const [programmaticKey, setProgrammaticKey] = useState<string | null>(() => localStorage.getItem('ag_programmatic_key'));
+
+  // Password Change State
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdSuccess, setPwdSuccess] = useState('');
+  const [pwdError, setPwdError] = useState('');
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdSuccess('');
+    setPwdError('');
+
+    if (newPwd.length < 8) {
+      setPwdError('New password must be at least 8 characters');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setPwdError('New passwords do not match');
+      return;
+    }
+
+    setPwdLoading(true);
+    try {
+      await authApi.changePassword(currentPwd, newPwd);
+      setPwdSuccess('Password updated successfully!');
+      setCurrentPwd('');
+      setNewPwd('');
+      setConfirmPwd('');
+      addAlert({ message: 'Password updated successfully', type: 'success' });
+      const updated = await authApi.getProfile();
+      setUser(updated);
+    } catch (err: any) {
+      setPwdError(err.response?.data?.detail || 'Failed to update password');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   // Notification Preferences
   const [prefs, setPrefs] = useState<NotifPrefs>(() => {
@@ -46,49 +88,65 @@ export const Account: React.FC = () => {
     localStorage.setItem('ag_notif_prefs', JSON.stringify(prefs));
   }, [prefs]);
 
-  // Fetch API Health on mount
+  // Fetch API Health & User Profile on mount
   useEffect(() => {
-    const fetchHealth = async () => {
+    const fetchHealthAndProfile = async () => {
       try {
         const { data } = await apiClient.get('/health');
-        setApiVersion(data.version || 'unknown');
+        setApiVersion(data.version || '1.0.0');
       } catch (err) {
         console.error('Failed to fetch API version:', err);
         setApiVersion('unknown');
       }
+
+      try {
+        const profile = await authApi.getProfile();
+        setUser(profile);
+        localStorage.setItem('user_profile', JSON.stringify(profile));
+      } catch (err) {
+        console.error('Failed to fetch user profile:', err);
+      }
     };
-    fetchHealth();
+    fetchHealthAndProfile();
   }, []);
 
-  const token = import.meta.env.VITE_AUTH_TOKEN 
-    ?? localStorage.getItem('auth_token')
-    ?? 'dummy-token-for-hackathon';
+  const token = getAuthToken() || 'No active session token';
 
   const copyToken = () => {
     navigator.clipboard.writeText(token);
-    addAlert({ message: 'Session token copied to clipboard', type: 'success' });
+    addAlert({ message: 'Session JWT copied to clipboard', type: 'success' });
   };
 
-  const confirmRegenerateToken = () => {
-    setShowModal(false);
-    addAlert({
-      message: 'Token regenerated (demo mode — restart backend to apply)',
-      type: 'info',
-    });
+  const copyProgrammaticKey = () => {
+    if (programmaticKey) {
+      navigator.clipboard.writeText(programmaticKey);
+      addAlert({ message: 'Programmatic API key copied to clipboard', type: 'success' });
+    }
+  };
+
+  const confirmRegenerateToken = async () => {
+    try {
+      setShowModal(false);
+      const res = await authApi.generateApiKey();
+      setProgrammaticKey(res.api_key);
+      localStorage.setItem('ag_programmatic_key', res.api_key);
+      addAlert({
+        message: 'New 90-day programmatic API key generated successfully',
+        type: 'success',
+      });
+    } catch (err: any) {
+      console.error('Failed to generate key:', err);
+      addAlert({
+        message: 'Failed to generate programmatic key',
+        type: 'error',
+      });
+    }
   };
 
   const handleExportCSV = async () => {
     try {
-      const authHeader = `Bearer ${token}`;
-      const response = await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'}/incidents/export/csv`, {
-        headers: {
-          'Authorization': authHeader
-        }
-      });
-      if (!response.ok) {
-        throw new Error('Export API returned error status');
-      }
-      const blob = await response.blob();
+      const response = await apiClient.get('/incidents/export/csv', { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -240,33 +298,74 @@ export const Account: React.FC = () => {
 
         {/* SECTION 2: Session & Auth */}
         <div className="bg-white border border-border-subtle rounded-md p-6 shadow-sm space-y-4">
-          <h3 style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            color: '#8A8480',
-          }}>
-            SESSION & AUTHENTICATION
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              color: '#8A8480',
+            }}>
+              SESSION & AUTHENTICATION
+            </h3>
+            <button
+              onClick={() => authApi.logout()}
+              style={{
+                background: '#FFF1F0',
+                border: '1px solid #FFCCC7',
+                color: '#CF1322',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer',
+              }}
+            >
+              <LogOut size={12} />
+              <span>Sign Out</span>
+            </button>
+          </div>
           <div className="divide-y divide-border-subtle">
+            <div className="py-3.5 flex justify-between items-center flex-wrap gap-2">
+              <span className="text-[12px] text-text-tertiary">Authenticated Analyst</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-semibold text-[#0F0E0D]">
+                  {user ? `${user.username} (${user.email})` : 'admin@agentguard.ai'}
+                </span>
+                <span style={{
+                  background: '#E6F7FF',
+                  border: '1px solid #91D5FF',
+                  color: '#0050B3',
+                  padding: '1px 7px',
+                  borderRadius: '99px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                }}>
+                  {user?.role || 'admin'}
+                </span>
+              </div>
+            </div>
             <div className="py-3.5 flex justify-between items-center flex-wrap gap-2">
               <span className="text-[12px] text-text-tertiary">Authentication Mode</span>
               <span style={{
-                background: '#FFF7E6',
-                border: '1px solid #FFD591',
-                color: '#D46B08',
+                background: '#F6FFED',
+                border: '1px solid #B7EB8F',
+                color: '#237804',
                 padding: '2px 8px',
                 borderRadius: '99px',
                 fontSize: '11px',
                 fontWeight: 600,
                 fontFamily: "'JetBrains Mono', monospace",
               }}>
-                {import.meta.env.VITE_AUTH_TOKEN ? 'Development Bypass' : 'Development'}
+                JWT Bearer (Signed)
               </span>
             </div>
             <div className="py-3.5 flex justify-between items-center flex-wrap gap-2">
-              <span className="text-[12px] text-text-tertiary">Active Token</span>
+              <span className="text-[12px] text-text-tertiary">Active Session JWT</span>
               <div className="flex items-center gap-2">
                 <span style={{
                   fontFamily: "'JetBrains Mono', monospace",
@@ -274,15 +373,37 @@ export const Account: React.FC = () => {
                   color: '#0F0E0D',
                   wordBreak: 'break-all',
                 }}>
-                  {token}
+                  {token.length > 32 ? `${token.substring(0, 16)}...${token.substring(token.length - 12)}` : token}
                 </span>
                 <button 
                   onClick={copyToken}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8A8480', display: 'flex' }}
-                  title="Copy token"
+                  title="Copy session JWT"
                 >
                   <Clipboard size={14} />
                 </button>
+              </div>
+            </div>
+            <div className="py-3.5 flex justify-between items-center flex-wrap gap-2">
+              <span className="text-[12px] text-text-tertiary">Programmatic API Key</span>
+              <div className="flex items-center gap-2">
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: '12px',
+                  color: programmaticKey ? '#0F0E0D' : '#8A8480',
+                  wordBreak: 'break-all',
+                }}>
+                  {programmaticKey ? `${programmaticKey.substring(0, 16)}...${programmaticKey.substring(programmaticKey.length - 12)}` : 'None generated yet'}
+                </span>
+                {programmaticKey && (
+                  <button 
+                    onClick={copyProgrammaticKey}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8A8480', display: 'flex' }}
+                    title="Copy API Key"
+                  >
+                    <Clipboard size={14} />
+                  </button>
+                )}
               </div>
             </div>
             <div className="py-3.5 flex justify-between items-center flex-wrap gap-2">
@@ -330,6 +451,104 @@ export const Account: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* SECTION 2B: Password & Credential Security */}
+        <div className="bg-white border border-border-subtle rounded-md p-6 shadow-sm space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              color: '#8A8480',
+            }}>
+              PASSWORD & CREDENTIAL SECURITY
+            </h3>
+            {user?.is_default_password && (
+              <span style={{
+                background: '#FFF1F0',
+                border: '1px solid #FFCCC7',
+                color: '#CF1322',
+                padding: '2px 8px',
+                borderRadius: '99px',
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+              }}>
+                DEFAULT PASSWORD ACTIVE
+              </span>
+            )}
+          </div>
+
+          {user?.is_default_password && (
+            <div className="bg-[#FFF1F0] border border-[#FFA39E] rounded-md p-3 text-[12px] text-[#CF1322]">
+              <strong>Security Alert:</strong> This account is currently using the public default password (<code>AdminGuard2026!</code>). Update your password now to prevent unauthorized access.
+            </div>
+          )}
+
+          {pwdSuccess && (
+            <div className="bg-[#F6FFED] border border-[#B7EB8F] rounded-md p-3 text-[12px] text-[#237804]">
+              {pwdSuccess}
+            </div>
+          )}
+
+          {pwdError && (
+            <div className="bg-[#FFF1F0] border border-[#FFA39E] rounded-md p-3 text-[12px] text-[#CF1322]">
+              {pwdError}
+            </div>
+          )}
+
+          <form onSubmit={handleChangePassword} className="space-y-3 max-w-md pt-2">
+            <div>
+              <label className="block text-[11px] font-mono text-text-tertiary uppercase mb-1">
+                Current Password
+              </label>
+              <input
+                type="password"
+                value={currentPwd}
+                onChange={(e) => setCurrentPwd(e.target.value)}
+                required
+                className="w-full px-3 py-1.5 text-[12px] font-mono border border-border-strong rounded bg-bg-surface text-text-primary focus:outline-none focus:border-brand"
+                placeholder="••••••••••••"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-mono text-text-tertiary uppercase mb-1">
+                New Password (minimum 8 characters)
+              </label>
+              <input
+                type="password"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                required
+                minLength={8}
+                className="w-full px-3 py-1.5 text-[12px] font-mono border border-border-strong rounded bg-bg-surface text-text-primary focus:outline-none focus:border-brand"
+                placeholder="New strong password"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-mono text-text-tertiary uppercase mb-1">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPwd}
+                onChange={(e) => setConfirmPwd(e.target.value)}
+                required
+                minLength={8}
+                className="w-full px-3 py-1.5 text-[12px] font-mono border border-border-strong rounded bg-bg-surface text-text-primary focus:outline-none focus:border-brand"
+                placeholder="Confirm new password"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={pwdLoading}
+              className="px-4 py-2 bg-brand hover:bg-brand-hover text-white text-[12px] font-semibold rounded transition-colors disabled:opacity-50"
+            >
+              {pwdLoading ? 'Updating Password...' : 'Update Password'}
+            </button>
+          </form>
         </div>
 
         {/* SECTION 3: Notification Preferences */}
@@ -404,8 +623,8 @@ export const Account: React.FC = () => {
                   fontSize: '14px',
                   fontWeight: 600,
                   color: '#0F0E0D',
-                }}>Regenerate API Token</h4>
-                <p className="text-[11px] text-text-tertiary mt-0.5">Create a new session token</p>
+                }}>Generate Programmatic API Key</h4>
+                <p className="text-[11px] text-text-tertiary mt-0.5">Issue a 90-day signed API key for automation, CLI, and SIEM ingestion</p>
               </div>
               <button 
                 onClick={() => setShowModal(true)}
@@ -424,7 +643,7 @@ export const Account: React.FC = () => {
                 onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
                 onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
               >
-                Regenerate API Token
+                Generate 90-Day Key
               </button>
             </div>
             <div className="py-4 flex justify-between items-center gap-4">
@@ -483,6 +702,34 @@ export const Account: React.FC = () => {
                 }}
               >
                 Clear Local Cache
+              </button>
+            </div>
+            <div className="py-4 flex justify-between items-center gap-4">
+              <div>
+                <h4 style={{
+                  fontFamily: "'Geist', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#CF1322',
+                }}>Sign Out</h4>
+                <p className="text-[11px] text-text-tertiary mt-0.5">Invalidate current browser JWT session and return to login</p>
+              </div>
+              <button 
+                onClick={() => authApi.logout()}
+                style={{
+                  background: '#FFF1F0',
+                  border: '1px solid #FFCCC7',
+                  color: '#CF1322',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontFamily: "'Geist', sans-serif",
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Sign Out
               </button>
             </div>
           </div>
@@ -550,10 +797,10 @@ export const Account: React.FC = () => {
             width: '90%',
           }}>
             <h4 style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: '15px', marginBottom: '8px' }}>
-              Regenerate API Token
+              Generate Programmatic API Key
             </h4>
             <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: '#5E5955', marginBottom: '20px', lineHeight: 1.5 }}>
-              This will invalidate your current session token. Continue?
+              This will request a newly signed 90-day programmatic API key from the AgentGuard backend for external automation and CLI access. Continue?
             </p>
             <div className="flex justify-end gap-3">
               <button 
@@ -586,7 +833,7 @@ export const Account: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
-                Confirm
+                Generate Key
               </button>
             </div>
           </div>

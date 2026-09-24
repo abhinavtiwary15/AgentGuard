@@ -2,8 +2,12 @@
 AgentGuard — Azure AI Search Index Setup Script
 ================================================
 Creates (or recreates) the following indexes and seeds them with data:
-  • threat-intelligence
-  • mitre-attack
+  • threat-intelligence (with HNSW vector search profile)
+  • mitre-attack (with HNSW vector search profile)
+
+Note: The vector schema and index setup logic pass local validation,
+but have not yet been tested against a live Azure AI Search instance.
+Validating against a deployed Azure Search instance is a welcome contribution.
 
 Usage (from agentguard-backend/):
     python scripts/setup_search_indexes.py
@@ -27,6 +31,17 @@ from azure.search.documents.indexes.models import (
     SearchFieldDataType,
     SimpleField,
     SearchableField,
+    VectorSearch,
+    HnswAlgorithmConfiguration,
+    VectorSearchProfile,
+)
+
+VECTOR_PROFILE_NAME = "agentguard-vector-profile"
+HNSW_CONFIG_NAME = "agentguard-hnsw"
+
+vector_search_config = VectorSearch(
+    algorithms=[HnswAlgorithmConfiguration(name=HNSW_CONFIG_NAME)],
+    profiles=[VectorSearchProfile(name=VECTOR_PROFILE_NAME, algorithm_configuration_name=HNSW_CONFIG_NAME)],
 )
 
 # ---------------------------------------------------------------------------
@@ -71,6 +86,13 @@ THREAT_FIELDS = [
     SearchableField(name="mitigation",  type=SearchFieldDataType.String),
     # Keep a flattened 'content' field that oracle's RAG search selects
     SearchableField(name="content",     type=SearchFieldDataType.String),
+    SearchField(
+        name="embedding",
+        type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+        searchable=True,
+        vector_search_dimensions=1536,
+        vector_search_profile_name=VECTOR_PROFILE_NAME,
+    ),
 ]
 
 THREAT_DOCUMENTS = [
@@ -504,6 +526,13 @@ MITRE_FIELDS = [
     SearchableField(name="detection",      type=SearchFieldDataType.String),
     SearchableField(name="mitigation",     type=SearchFieldDataType.String),
     SearchableField(name="examples",       type=SearchFieldDataType.String),
+    SearchField(
+        name="embedding",
+        type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+        searchable=True,
+        vector_search_dimensions=1536,
+        vector_search_profile_name=VECTOR_PROFILE_NAME,
+    ),
 ]
 
 MITRE_DOCUMENTS = [
@@ -823,10 +852,10 @@ MITRE_DOCUMENTS = [
 # ---------------------------------------------------------------------------
 
 def build_threat_index() -> SearchIndex:
-    return SearchIndex(name=THREAT_INDEX_NAME, fields=THREAT_FIELDS)
+    return SearchIndex(name=THREAT_INDEX_NAME, fields=THREAT_FIELDS, vector_search=vector_search_config)
 
 def build_mitre_index() -> SearchIndex:
-    return SearchIndex(name=MITRE_INDEX_NAME, fields=MITRE_FIELDS)
+    return SearchIndex(name=MITRE_INDEX_NAME, fields=MITRE_FIELDS, vector_search=vector_search_config)
 
 # ---------------------------------------------------------------------------
 # Main

@@ -10,8 +10,10 @@ export interface IncidentStats {
   resolved: number;
   active: number;
   avgResponseMs: number;
-  accuracy: number;
-  uptime: number;
+  autoResolvedPct: number | null;
+  uptimeSeconds: number | null;
+  accuracy: number | null;
+  uptime: number | null;
 }
 
 const DEFAULT_STATS: IncidentStats = {
@@ -22,9 +24,11 @@ const DEFAULT_STATS: IncidentStats = {
   low: 0,
   resolved: 0,
   active: 0,
-  avgResponseMs: 312,
-  accuracy: 98.7,
-  uptime: 99.9,
+  avgResponseMs: 0,
+  autoResolvedPct: null,
+  uptimeSeconds: null,
+  accuracy: null,
+  uptime: null,
 };
 
 const CACHE_KEY = 'agentguard_incident_stats';
@@ -34,7 +38,6 @@ const getCachedStats = (): IncidentStats => {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
-      // Ensure all fields exist
       return {
         ...DEFAULT_STATS,
         ...parsed
@@ -52,9 +55,13 @@ interface BackendStats {
   by_status: Record<string, number>;
   by_severity: Record<string, number>;
   by_attack_type: Record<string, number>;
+  avg_response_ms?: number;
+  auto_resolved_pct?: number | null;
+  uptime_seconds?: number | null;
 }
 
 function mapBackendStats(data: BackendStats): IncidentStats {
+  const autoResolved = data.auto_resolved_pct ?? null;
   return {
     total: data.total ?? 0,
     active: data.active ?? 0,
@@ -63,9 +70,11 @@ function mapBackendStats(data: BackendStats): IncidentStats {
     medium: data.by_severity?.medium ?? 0,
     low: data.by_severity?.low ?? 0,
     resolved: data.by_status?.resolved ?? 0,
-    avgResponseMs: data.total > 0 ? 312 : 0,
-    accuracy: 98.7,
-    uptime: 99.9,
+    avgResponseMs: data.avg_response_ms ?? 0,
+    autoResolvedPct: autoResolved,
+    uptimeSeconds: data.uptime_seconds ?? null,
+    accuracy: autoResolved,
+    uptime: null,
   };
 }
 

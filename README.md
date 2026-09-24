@@ -1,7 +1,7 @@
 # 🛡️ AgentGuard — Autonomous AI Security Operations Center
 
-> **Microsoft Build AI Hackathon 2026** — Enterprise Security Track  
-> *Your enterprise's autonomous security team. 24/7. Instant. Intelligent.*
+> **Open-Source Multi-Agent Security Operations Center**  
+> *Autonomous threat triage, investigation, and containment powered by multi-agent reasoning.*
 
 [![Azure OpenAI](https://img.shields.io/badge/Azure-OpenAI%20GPT--4o-0078D4?logo=microsoft-azure&logoColor=white)](https://azure.microsoft.com/en-us/products/ai-services/openai-service)
 [![Azure AI Foundry](https://img.shields.io/badge/Azure-AI%20Foundry-0078D4?logo=microsoft-azure&logoColor=white)](https://ai.azure.com)
@@ -150,24 +150,65 @@ npm run dev
 
 ---
 
-## ⚙️ Environment Variables
+## 🔐 Authentication & Access Control
 
-All variables are documented in [`agentguard-backend/.env.example`](./agentguard-backend/.env.example).
+AgentGuard features a self-contained, cryptographically secure JWT authentication system with role-based access control (RBAC).
 
-| Category | Variable | Description |
-|----------|----------|-------------|
-| Azure OpenAI | `AZURE_OPENAI_ENDPOINT` | Your Azure OpenAI resource endpoint |
-| Azure OpenAI | `AZURE_OPENAI_KEY` | API key for Azure OpenAI |
-| Azure OpenAI | `AZURE_OPENAI_GPT4O_DEPLOYMENT` | GPT-4o deployment name |
-| Azure OpenAI | `AZURE_OPENAI_MINI_DEPLOYMENT` | GPT-4o-mini deployment name |
-| Azure AI Search | `AZURE_SEARCH_ENDPOINT` | Azure AI Search service endpoint |
-| Azure AI Search | `AZURE_SEARCH_KEY` | Azure AI Search admin API key |
-| Cosmos DB | `COSMOS_DB_CONNECTION` | Cosmos DB full connection string |
-| Event Hub | `EVENT_HUB_CONNECTION` | Event Hub namespace connection string |
-| Service Bus | `SERVICE_BUS_CONNECTION` | Service Bus namespace connection string |
-| Power Automate | `POWER_AUTOMATE_BLOCK_IP_URL` | HTTP trigger URL for IP block flow |
-| Thresholds | `THREAT_DETECTION_THRESHOLD` | Min score (0-100) to trigger response (default: 70) |
-| Thresholds | `HUMAN_ESCALATION_CONFIDENCE` | AI confidence below which human review is required (default: 0.70) |
+### Initial Admin Credentials
+Upon first launch, if no users exist in the system, AgentGuard automatically bootstraps a default administrator account:
+- **Username**: `admin`
+- **Email**: `admin@agentguard.ai`
+- **Password**: `AdminGuard2026!`
+
+> [!WARNING]
+> **Production Security Notice**: These default bootstrap credentials are provided strictly for initial setup and demonstration. In any non-local or staging environment, change this password immediately via the security controls or register dedicated analyst credentials.
+>
+> **In-Memory Fallback Persistence Note**: When running locally without Azure Cosmos DB (`COSMOS_DB_CONNECTION` not configured), AgentGuard stores users in-memory and will re-seed the default administrator (`admin` / `AdminGuard2026!`) on **every server restart**. To persist updated passwords and custom users across restarts, configure an Azure Cosmos DB instance.
+>
+> **Default Password Security Warning Banner**: When logged in with the default password, AgentGuard renders an active warning banner across the application prompting an immediate password change. You can change your password directly in the **Account & Security Settings** tab.
+
+### Authentication Features
+1. **Interactive Login & Registration**: The frontend `/login` view allows analysts to sign in with their credentials or register a new analyst profile.
+2. **Signed Bearer JWTs**: The backend issues signed HS256 tokens (with 24-hour validity) validated against `JWT_SECRET`. Passwords are encrypted with bcrypt (12 rounds) — plaintext passwords are never stored.
+3. **Route Guards & Interceptors**: Unauthenticated sessions are automatically caught and redirected to `/login`, and expired sessions cleanly trigger re-authentication.
+4. **Programmatic API Keys**: From the **Account & Security Settings** page, analysts can generate a dedicated 90-day signed API token for automation, CLI utilities, and external SIEM forwarding.
+5. **Self-Service Password Management**: Authenticated users can update their passwords directly via `POST /api/auth/change-password` or the Account interface.
+
+### 🏢 Enterprise Production Upgrade Path: Microsoft Entra ID (Azure AD)
+For full enterprise deployment, this self-issued JWT flow is architected to be upgraded to **Microsoft Entra ID (Azure AD)** using MSAL:
+- **Why Entra ID**: Enterprise SOC environments require centralized identity management, Single Sign-On (SSO), hardware-backed Multi-Factor Authentication (MFA), Conditional Access policies (e.g., location/device health restrictions), and automated token revocation when personnel leave.
+- **Implementation**: The frontend integrates `@azure/msal-react` for seamless corporate login, while FastAPI's `dependencies.py` validates Microsoft Entra ID bearer tokens against the Microsoft identity platform's public JWKS endpoints using tenant ID and client ID.
+
+---
+
+## ⚙️ Environment Variables & Fallback Behaviors
+
+All variables are documented in [`agentguard-backend/.env.example`](./agentguard-backend/.env.example). AgentGuard is architected to boot out of the box in development using resilient local fallbacks, while strictly enforcing security in production.
+
+### Required vs. Optional Variables
+
+| Category | Variable | Status | Fallback Behavior When Missing |
+|----------|----------|--------|--------------------------------|
+| **Core** | `ENVIRONMENT` | Optional (default: `development`) | When set to `production`, strict JWT verification is enforced and insecure dev tokens are prohibited. |
+| **Auth** | `JWT_SECRET` | **Required in Prod** (Dev default provided) | In development, defaults to a test key. In `production`, startup crashes with a `ValidationError` if not explicitly set to a secure string. |
+| **Auth** | `ALLOWED_ORIGINS` | Optional (defaults provided) | Defaults to `localhost:3000`, `localhost`, and official Azure Container App origins. |
+| **Azure OpenAI** | `AZURE_OPENAI_ENDPOINT` | Optional | If missing or invalid, Sentinel/Oracle/Striker/Herald switch to deterministic local mock reasoning (`_fallback_json`). |
+| **Azure OpenAI** | `AZURE_OPENAI_KEY` | Optional | If missing, empty, or containing `"mock"`, triggers mock fallback without crashing. |
+| **Azure AI Search**| `AZURE_SEARCH_ENDPOINT` | Optional | If missing, Oracle RAG search degrades gracefully and returns empty context without crashing. |
+| **Azure AI Search**| `AZURE_SEARCH_KEY` | Optional | If missing, Azure Search client initializes in mock mode. |
+| **Cosmos DB** | `COSMOS_DB_CONNECTION` | Optional | If missing or set to mock, Cosmos DB activates in-memory dictionary storage (`_write_memory`). Incidents persist for session lifetime. |
+| **Event Hub** | `EVENT_HUB_CONNECTION` | Optional | If missing, log ingestion stream defaults to HTTP API bypass mode. |
+| **Service Bus** | `SERVICE_BUS_CONNECTION` | Optional | If missing, pub/sub messaging operates in local in-process bypass mode. |
+| **Power Automate**| `POWER_AUTOMATE_*_URL` | Optional | If missing, empty, or placeholder, containment actions report honest "not configured" status rather than pretending success. |
+| **Alerting** | `TEAMS_WEBHOOK_URL` | Optional | If missing, Herald alert dispatch broadcasts over WebSocket to the dashboard and honestly marks external Teams dispatch as skipped. |
+| **Identity** | `AZURE_AD_*` | Optional | Used for enterprise session revocation workflows via Azure AD Graph. |
+
+> [!NOTE]
+> **Implementation vs. Live Azure Verification Status**:
+> - **Verified Live End-to-End**: The FastAPI-issued JWT authentication flow, role-based access control, password update flow, honest operational metrics computation, WebSocket telemetry streaming, and the dual-run scenario playback lab have been verified live end-to-end.
+> - **Implemented (Offline / Fallback Verified Only)**:
+>   - *Azure Event Hub & Service Bus*: Event Hub and Service Bus integration is implemented and passes local checks, but has not yet been verified against a live Azure resource. Testing this against a real deployment is a good first contribution.
+>   - *Azure AI Search Vector Index*: The vector schema and index setup script (`setup_search_indexes.py`) are implemented with HNSW vector profile configurations and pass local checks, but have not yet been verified against a live Azure AI Search resource. Testing this against a live Azure Search instance is a welcome contribution.
 
 ---
 
@@ -279,20 +320,24 @@ Interactive API docs available at `http://localhost:8000/api/docs` (Swagger UI).
 
 ---
 
-## 🤝 Hackathon Disclosures
+## 🏆 Project History & Hackathon Archive
 
-- **GitHub Copilot** was used as a code-completion assistant during development.
-- **Google Stitch** and **v0 by Vercel** were used for UI design reference and component generation.
-- **Anthropic Claude** was used as an AI assistant during development.
-- This project was built for the **Microsoft Build AI Hackathon 2026**.
-- The project will remain live and publicly accessible for **30+ days** post-submission.
+AgentGuard was originally conceptualized and built for the **Microsoft Build AI Hackathon 2026** (Enterprise Security Track). See [HACKATHON.md](./HACKATHON.md) for the original hackathon pitch, demo script, and submission disclosures.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please review [CONTRIBUTING.md](./CONTRIBUTING.md) for local zero-cloud development instructions, running test suites, and open priority initiatives.
+
+---
+
+## 🔒 Security
+
+For vulnerability disclosure policies, see [SECURITY.md](./SECURITY.md).
 
 ---
 
 ## 📄 License
 
 MIT License — see [LICENSE](./LICENSE) for details.
-
----
-
-*Built with ❤️ and Azure by Team Neural Nexus · Microsoft Build AI Hackathon 2026*

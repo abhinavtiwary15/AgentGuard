@@ -26,8 +26,8 @@ NEXUS_PROMPT = """You are Nexus, the orchestrator."""
 
 
 client = AsyncAzureOpenAI(
-    azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
-    api_key=settings.AZURE_OPENAI_KEY,
+    azure_endpoint=settings.AZURE_OPENAI_ENDPOINT or "https://mock.openai.azure.com",
+    api_key=settings.AZURE_OPENAI_KEY or "mock-key",
     api_version=settings.AZURE_OPENAI_API_VERSION,
 )
 
@@ -40,7 +40,8 @@ def health_status() -> dict:
 
 def _should_use_fallback() -> bool:
     key = settings.AZURE_OPENAI_KEY or ""
-    return "mock" in key or "your_openai" in key
+    endpoint = settings.AZURE_OPENAI_ENDPOINT or ""
+    return not key or not endpoint or "mock" in key.lower() or "your_openai" in key.lower() or "mock" in endpoint.lower()
 
 
 async def _with_retries(label: str, call: Callable[[], Coroutine[Any, Any, Any]]) -> Optional[Any]:

@@ -191,14 +191,18 @@ export const Reports: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-6">
                       <div className="border border-border-subtle rounded p-4 bg-bg-raised/35">
-                        <span className="panel-label">Swarm Detection Accuracy</span>
-                        <div className="metric-number text-2xl text-text-primary mt-1">99.4%</div>
-                        <p className="text-[10px] text-text-tertiary mt-1">Verified across 35 signature checks</p>
+                        <span className="panel-label">Analysis Confidence</span>
+                        <div className="metric-number text-2xl text-text-primary mt-1">
+                          {report.metrics?.confidence ? `${Math.round(Number(report.metrics.confidence) * 100)}%` : 'Verified'}
+                        </div>
+                        <p className="text-[10px] text-text-tertiary mt-1">Classification confidence from Sentinel & Oracle</p>
                       </div>
                       <div className="border border-border-subtle rounded p-4 bg-bg-raised/35">
-                        <span className="panel-label">Swarm Containment Speed</span>
-                        <div className="metric-number text-2xl text-text-primary mt-1">1.2s</div>
-                        <p className="text-[10px] text-text-tertiary mt-1">From initial log ingestion to firewall block</p>
+                        <span className="panel-label">Response Execution Time</span>
+                        <div className="metric-number text-2xl text-text-primary mt-1">
+                          {report.metrics?.response_time_ms ? `${Math.round(Number(report.metrics.response_time_ms))}ms` : 'Automated'}
+                        </div>
+                        <p className="text-[10px] text-text-tertiary mt-1">From initial log ingestion to containment</p>
                       </div>
                     </div>
                   </div>

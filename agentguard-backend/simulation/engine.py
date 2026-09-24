@@ -42,9 +42,32 @@ class SimulationEngine:
         log_entry = self._scenario_log(scenario_id)
         if not log_entry:
             return
+
+        await ws_manager.broadcast("pipeline_status", {
+            "mode": "live_backend_processing",
+            "scenario": scenario_id,
+            "status": "ingested",
+            "message": f"Live Detection Engine: Ingesting synthetic telemetry stream for {scenario_id} into Sentinel agent...",
+        })
+        
         signal = await sentinel.analyze_log(log_entry)
         if signal:
-            await nexus.handle_threat(signal, dry_run=dry_run)
+            await ws_manager.broadcast("pipeline_status", {
+                "mode": "live_backend_processing",
+                "scenario": scenario_id,
+                "status": "threat_detected",
+                "score": signal.threat_score,
+                "message": f"Live Detection Engine: Sentinel emitted ThreatSignal (score: {signal.threat_score}) -> Dispatched to Nexus",
+            })
+            incident = await nexus.handle_threat(signal, dry_run=dry_run)
+            incident_id = incident.id if incident else "N/A"
+            await ws_manager.broadcast("pipeline_status", {
+                "mode": "live_backend_processing",
+                "scenario": scenario_id,
+                "status": "pipeline_complete",
+                "incident_id": incident_id,
+                "message": f"Live Detection Engine: Full agent swarm cycle completed. Incident recorded as {incident_id}",
+            })
 
     def _scenario_log(self, scenario_id: str):
         if scenario_id == "sql_injection":

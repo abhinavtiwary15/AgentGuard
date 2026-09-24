@@ -26,22 +26,22 @@ interface SimResults {
 const SCENARIOS = {
   sql_injection: {
     key: 'sql_injection' as ScenarioKey,
-    title: 'SQL Injection Drill',
-    description: 'Blind SQL injection attack against the API gateway database.',
+    title: 'Scenario Playback: SQL Injection Drill',
+    description: 'Narrated SQL injection attack replaying against live Sentinel perimeter detector.',
     severity: 'CRITICAL',
     color: '#CF1322',
   },
   brute_force: {
     key: 'brute_force' as ScenarioKey,
-    title: 'Credential Stuffing',
-    description: 'Rapid auth attempts mapping account takeover vectors.',
+    title: 'Scenario Playback: Credential Stuffing',
+    description: 'Narrated auth volume attack triggering live heuristic detection & lockout.',
     severity: 'HIGH',
     color: '#D46B08',
   },
   insider_threat: {
     key: 'insider_threat' as ScenarioKey,
-    title: 'Insider Threat Simulation',
-    description: 'Data egress patterns on confidential repositories.',
+    title: 'Scenario Playback: Insider Threat',
+    description: 'Narrated abnormal egress patterns analyzed by live Sentinel & Oracle agents.',
     severity: 'HIGH',
     color: '#7C5A00',
   },
@@ -220,13 +220,20 @@ export const Simulation: React.FC = () => {
     prevIncidentCountRef.current = incidents.length;
 
     try {
-      await apiClient.post('/simulation/run', {
+      console.log('Launching:', activeScenario, 'to:', import.meta.env.VITE_API_URL);
+      const response = await apiClient.post('/simulation/run', {
         scenario: activeScenario,
         speed: speedMultiplier,
         dry_run: false,
       });
-    } catch (err) {
-      console.warn('Could not launch simulation via API, falling back to local simulation:', err);
+      console.log('Response:', response.data);
+    } catch (err: any) {
+      setSimStatus('idle');
+      console.error('Full error:', err);
+      console.error('Response:', err?.response?.data);
+      console.error('Status:', err?.response?.status);
+      alert(`Launch failed: ${err?.response?.status} - ${JSON.stringify(err?.response?.data)}`);
+      return;
     }
 
     // Auto-complete after 18s / speed multiplier
@@ -263,7 +270,18 @@ export const Simulation: React.FC = () => {
 
   return (
     <div className="min-h-full flex flex-col relative bg-bg-base">
-      <CommandBar title="Simulation Lab" tag="SANDBOX" />
+      <CommandBar title="Scenario Playback Lab" tag="DUAL-RUN SANDBOX" />
+
+      {/* Architecture Transparency Banner */}
+      <div className="px-6 pt-4 pb-0">
+        <div className="bg-bg-surface border border-border-subtle rounded-md px-4 py-2.5 flex items-center justify-between text-[11px] text-text-secondary">
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-brand animate-pulse"></span>
+            <span><strong>Dual-Run Architecture:</strong> This lab plays back a narrated scenario timeline while concurrently ingesting synthetic telemetry into the live Sentinel → Nexus → Oracle → Striker pipeline.</span>
+          </div>
+          <span className="font-mono text-text-tertiary">Real Telemetry Ingestion</span>
+        </div>
+      </div>
 
       {/* Main split dashboard area */}
       <div className="flex-1 flex gap-6 p-6 overflow-auto" style={{ minHeight: '600px' }}>

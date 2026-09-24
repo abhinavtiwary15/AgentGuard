@@ -174,8 +174,11 @@ class DashboardMetrics(BaseModel):
     critical_active: int = 0
     investigating: int = 0
     avg_response_ms: float = 0
-    accuracy_pct: float = 98.7
-    uptime_pct: float = 99.9
+    auto_resolved_pct: Optional[float] = None
+    escalation_pct: Optional[float] = None
+    server_uptime_seconds: float = 0.0
+    accuracy_pct: Optional[float] = None
+    uptime_pct: Optional[float] = None
     agents_online: int = 5
     hourly_trend: List[int] = []
     attack_distribution: Dict[str, int] = {}
@@ -193,3 +196,48 @@ class SimulationEvent(BaseModel):
     event_type: str
     data: Dict[str, Any]
     message: str
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    ANALYST = "analyst"
+    VIEWER = "viewer"
+
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    username: str
+    email: str
+    hashed_password: str
+    role: UserRole = UserRole.ANALYST
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    email: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+    is_default_password: bool = False
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+    role: Optional[UserRole] = UserRole.ANALYST
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse
+
+class ApiKeyResponse(BaseModel):
+    api_key: str
+    created_at: datetime
+    role: str
+    description: str

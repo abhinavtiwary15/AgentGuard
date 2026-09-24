@@ -22,13 +22,13 @@ const AGENT_CONFIG: Record<string, {
   bgColor: string;
   emoji: string;
   role: string;
-  accuracy: string;
+  specialization: string;
 }> = {
-  Sentinel: { color: '#531DAB', bgColor: '#F9F0FF', emoji: '👁️', role: 'Perimeter Monitor', accuracy: '98.1%' },
-  Oracle:   { color: '#003EB3', bgColor: '#F0F5FF', emoji: '🔬', role: 'Deep Analyst',       accuracy: '94.7%' },
-  Striker:  { color: '#CF1322', bgColor: '#FFF1F0', emoji: '⚡', role: 'Auto Responder',      accuracy: '100%'  },
-  Nexus:    { color: '#7C5A00', bgColor: '#FFFBE6', emoji: '🧩', role: 'Orchestrator',        accuracy: '99.2%' },
-  Herald:   { color: '#237804', bgColor: '#F6FFED', emoji: '📋', role: 'Report Generator',    accuracy: '96.3%' },
+  Sentinel: { color: '#531DAB', bgColor: '#F9F0FF', emoji: '👁️', role: 'Perimeter Monitor', specialization: 'Rule + ML Scoring' },
+  Oracle:   { color: '#003EB3', bgColor: '#F0F5FF', emoji: '🔬', role: 'Deep Analyst',       specialization: 'RAG & MITRE Map' },
+  Striker:  { color: '#CF1322', bgColor: '#FFF1F0', emoji: '⚡', role: 'Auto Responder',      specialization: 'Containment Action' },
+  Nexus:    { color: '#7C5A00', bgColor: '#FFFBE6', emoji: '🧩', role: 'Orchestrator',        specialization: 'Async Graph Swarm' },
+  Herald:   { color: '#237804', bgColor: '#F6FFED', emoji: '📋', role: 'Report Generator',    specialization: 'Forensics & Audit' },
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -166,7 +166,7 @@ export const Agents: React.FC = () => {
         }}>
           {agents.map((agent: AgentState) => {
             const cfg = AGENT_CONFIG[agent.name] ?? {
-              color: '#888780', bgColor: '#F2F0EC', emoji: '🤖', role: 'Agent', accuracy: '—',
+              color: '#888780', bgColor: '#F2F0EC', emoji: '🤖', role: 'Agent', specialization: 'Security Engine',
             };
             const isThisRebooting = rebootingAgent === agent.name;
             const isActive = !isThisRebooting && ['active', 'busy', 'working', 'processing'].includes(agent.status);
@@ -247,10 +247,10 @@ export const Agents: React.FC = () => {
                     <span className="text-[8.5px] font-mono text-text-tertiary block mt-1 uppercase">Avg Latency</span>
                   </div>
                   <div className="bg-bg-base border border-border-subtle p-2 rounded">
-                    <span className="font-mono text-[18px] font-bold text-text-primary block leading-none">
-                      {cfg.accuracy}
+                    <span className="font-mono text-[11px] font-bold text-text-primary block leading-tight truncate" title={cfg.specialization}>
+                      {cfg.specialization}
                     </span>
-                    <span className="text-[8.5px] font-mono text-text-tertiary block mt-1 uppercase">Accuracy</span>
+                    <span className="text-[8.5px] font-mono text-text-tertiary block mt-1 uppercase">Specialization</span>
                   </div>
                 </div>
 

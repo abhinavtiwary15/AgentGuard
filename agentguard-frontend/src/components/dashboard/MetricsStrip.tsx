@@ -18,6 +18,18 @@ export const MetricsStrip: React.FC = () => {
     ? `${Math.round(stats.avgResponseMs)}ms`
     : '—';
 
+  const autoResolutionDisplay = stats.autoResolvedPct !== null
+    ? `${stats.autoResolvedPct}%`
+    : '—';
+
+  const formatUptime = (seconds: number | null): string => {
+    if (seconds === null) return 'Live';
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${Math.max(1, mins)}m`;
+  };
+
   return (
     <div className="grid grid-cols-6 gap-4 p-6 shrink-0">
       <MetricCard
@@ -38,7 +50,7 @@ export const MetricsStrip: React.FC = () => {
         label="Resolved"
         value={loading ? <SkeletonValue /> : String(stats.resolved)}
         severity="low"
-        delta="Today"
+        delta="Handled"
         delayClass="el-2"
       />
       <MetricCard
@@ -49,17 +61,17 @@ export const MetricsStrip: React.FC = () => {
         delayClass="el-2"
       />
       <MetricCard
-        label="AI Accuracy"
-        value={loading ? <SkeletonValue /> : `${stats.accuracy}%`}
-        severity="medium"
-        delta="+0.2%"
+        label="Auto-Resolution"
+        value={loading ? <SkeletonValue /> : autoResolutionDisplay}
+        severity={stats.autoResolvedPct !== null && stats.autoResolvedPct >= 80 ? 'low' : 'medium'}
+        delta={stats.autoResolvedPct !== null ? 'Autonomous' : 'No closed data'}
         delayClass="el-3"
       />
       <MetricCard
-        label="System Uptime"
-        value={loading ? <SkeletonValue /> : `${stats.uptime}%`}
+        label="Engine Uptime"
+        value={loading ? <SkeletonValue /> : formatUptime(stats.uptimeSeconds)}
         severity="low"
-        delta="30 days"
+        delta="Process runtime"
         delayClass="el-4"
       />
     </div>
